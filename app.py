@@ -4,17 +4,24 @@ from PIL import Image
 import tensorflow as tf
 from supabase import create_client, Client
 import uuid
+import os
 
 # ------------------------
 # SUPABASE CONFIG
 # ------------------------
 
-SUPABASE_URL = "YOUR_SUPABASE_URL"
-SUPABASE_KEY = "YOUR_SUPABASE_KEY"
+# Supabase URL und Key über Secrets oder Environment Variablen
+SUPABASE_URL = os.environ.get("SUPABASE_URL")  # z.B. "https://gtwnoeacbgpxpojizzub.supabase.co"
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")  # z.B. ANON-KEY
+
+# Prüfen, ob URL und Key gesetzt sind
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error("SUPABASE_URL oder SUPABASE_KEY ist nicht gesetzt!")
+    st.stop()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-BUCKET = "lost-items"
+BUCKET = "lost-items"  # Name des Storage-Buckets
 
 # ------------------------
 # MODEL LADEN
@@ -30,31 +37,23 @@ with open("labels.txt", "r") as f:
 # ------------------------
 
 def preprocess_image(image):
-
     image = image.resize((224, 224))
     image_array = np.asarray(image)
     image_array = image_array.astype(np.float32) / 255.0
     image_array = np.expand_dims(image_array, axis=0)
-
     return image_array
-
 
 # ------------------------
 # FUNKTION: VORHERSAGE
 # ------------------------
 
 def predict(image):
-
     processed = preprocess_image(image)
-
     prediction = model.predict(processed)
-
     index = np.argmax(prediction)
     label = labels[index]
     confidence = prediction[0][index]
-
     return label, confidence
-
 
 # ------------------------
 # STREAMLIT UI
@@ -69,13 +68,10 @@ tab1, tab2 = st.tabs(["Fund hochladen", "Suche"])
 # ------------------------
 
 with tab1:
-
     uploaded_file = st.file_uploader("Bild hochladen", type=["jpg","png","jpeg"])
 
     if uploaded_file:
-
         image = Image.open(uploaded_file)
-
         st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
 
         label, confidence = predict(image)
@@ -84,9 +80,7 @@ with tab1:
         st.write("Sicherheit:", round(float(confidence)*100,2), "%")
 
         if st.button("Fund speichern"):
-
             file_id = str(uuid.uuid4()) + ".jpg"
-
             image_bytes = uploaded_file.getvalue()
 
             # Upload zu Supabase Storage
@@ -111,11 +105,9 @@ with tab1:
 # ------------------------
 
 with tab2:
-
     search = st.text_input("Nach Objekt suchen")
 
     if st.button("Suchen"):
-
         query = supabase.table("lost_items").select("*")
 
         if search != "":
@@ -124,7 +116,6 @@ with tab2:
         result = query.execute()
 
         for item in result.data:
-
             st.image(item["image_url"], width=200)
             st.write("Kategorie:", item["label"])
             st.write("---")
