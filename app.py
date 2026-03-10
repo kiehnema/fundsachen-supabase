@@ -35,10 +35,6 @@ st.markdown("""
     width: 100%;
 }
 
-.stTextInput>div>div>input {
-    border-radius: 8px;
-}
-
 .card {
     background-color: white;
     padding: 15px;
@@ -117,7 +113,7 @@ st.markdown('<div class="subtitle">Finde verlorene Gegenstände oder melde gefun
 tab1, tab2 = st.tabs(["📤 Fund melden", "🔍 Gegenstand suchen"])
 
 # ------------------------
-# TAB 1: UPLOAD
+# TAB 1: FUND MELDEN
 # ------------------------
 
 with tab1:
@@ -148,6 +144,7 @@ with tab1:
                 file_id = str(uuid.uuid4()) + ".jpg"
                 image_bytes = uploaded_file.getvalue()
 
+                # Bild hochladen
                 supabase.storage.from_(BUCKET).upload(
                     file_id,
                     image_bytes,
@@ -156,6 +153,7 @@ with tab1:
 
                 public_url = supabase.storage.from_(BUCKET).get_public_url(file_id)
 
+                # Datenbank speichern
                 supabase.table("lost_items").insert({
                     "label": label,
                     "image_url": public_url
@@ -173,12 +171,15 @@ with tab2:
 
     search = st.text_input("🔍 Objekt suchen")
 
+    show_all = st.checkbox("Alle Gegenstände anzeigen")
+
     if st.button("Suchen"):
 
         query = supabase.table("lost_items").select("*")
 
-        if search != "":
-            query = query.ilike("label", f"%{search}%")
+        if not show_all:
+            if search != "":
+                query = query.ilike("label", f"%{search}%")
 
         result = query.execute()
 
