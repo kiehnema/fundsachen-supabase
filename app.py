@@ -7,21 +7,73 @@ import uuid
 import os
 
 # ------------------------
+# PAGE CONFIG
+# ------------------------
+
+st.set_page_config(
+    page_title="Digitales Fundbüro",
+    page_icon="🔎",
+    layout="wide"
+)
+
+# ------------------------
+# DESIGN (CSS)
+# ------------------------
+
+st.markdown("""
+<style>
+
+.main {
+    background-color: #f5f7fb;
+}
+
+.stButton>button {
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 8px;
+    height: 3em;
+    width: 100%;
+}
+
+.stTextInput>div>div>input {
+    border-radius: 8px;
+}
+
+.card {
+    background-color: white;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.title {
+    font-size: 40px;
+    font-weight: bold;
+}
+
+.subtitle {
+    color: grey;
+    margin-bottom: 20px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------
 # SUPABASE CONFIG
 # ------------------------
 
-# Supabase URL und Key über Secrets oder Environment Variablen
-SUPABASE_URL = os.environ.get("SUPABASE_URL")  # z.B. "https://gtwnoeacbgpxpojizzub.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")  # z.B. ANON-KEY
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Prüfen, ob URL und Key gesetzt sind
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("SUPABASE_URL oder SUPABASE_KEY ist nicht gesetzt!")
     st.stop()
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-BUCKET = "lost-items"  # Name des Storage-Buckets
+BUCKET = "lost-items"
 
 # ------------------------
 # MODEL LADEN
@@ -33,7 +85,7 @@ with open("labels.txt", "r") as f:
     labels = [line.strip() for line in f.readlines()]
 
 # ------------------------
-# FUNKTION: IMAGE PREPROCESS
+# IMAGE PREPROCESS
 # ------------------------
 
 def preprocess_image(image):
@@ -44,7 +96,7 @@ def preprocess_image(image):
     return image_array
 
 # ------------------------
-# FUNKTION: VORHERSAGE
+# VORHERSAGE
 # ------------------------
 
 def predict(image):
@@ -56,58 +108,73 @@ def predict(image):
     return label, confidence
 
 # ------------------------
-# STREAMLIT UI
+# HEADER
 # ------------------------
 
-st.title("🔎 Digitales Fundbüro")
+st.markdown('<div class="title">🔎 Digitales Fundbüro</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Finde verlorene Gegenstände oder melde gefundene Objekte</div>', unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["Fund hochladen", "Suche"])
+tab1, tab2 = st.tabs(["📤 Fund melden", "🔍 Gegenstand suchen"])
 
 # ------------------------
 # TAB 1: UPLOAD
 # ------------------------
 
 with tab1:
+
+    st.subheader("Fundstück hochladen")
+
     uploaded_file = st.file_uploader("Bild hochladen", type=["jpg","png","jpeg"])
 
     if uploaded_file:
+
+        col1, col2 = st.columns(2)
+
         image = Image.open(uploaded_file)
-        st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
+
+        with col1:
+            st.image(image, caption="Hochgeladenes Bild", use_column_width=True)
 
         label, confidence = predict(image)
 
-        st.write("Erkanntes Objekt:", label)
-        st.write("Sicherheit:", round(float(confidence)*100,2), "%")
+        with col2:
+            st.markdown("### 🤖 KI-Erkennung")
 
-        if st.button("Fund speichern"):
-            file_id = str(uuid.uuid4()) + ".jpg"
-            image_bytes = uploaded_file.getvalue()
+            st.success(f"Objekt: **{label}**")
+            st.write("Sicherheit:", round(float(confidence)*100,2), "%")
 
-            # Upload zu Supabase Storage
-            supabase.storage.from_(BUCKET).upload(
-                file_id,
-                image_bytes,
-                {"content-type": "image/jpeg"}
-            )
+            if st.button("📦 Fund speichern"):
 
-            public_url = supabase.storage.from_(BUCKET).get_public_url(file_id)
+                file_id = str(uuid.uuid4()) + ".jpg"
+                image_bytes = uploaded_file.getvalue()
 
-            # In Datenbank speichern
-            supabase.table("lost_items").insert({
-                "label": label,
-                "image_url": public_url
-            }).execute()
+                supabase.storage.from_(BUCKET).upload(
+                    file_id,
+                    image_bytes,
+                    {"content-type": "image/jpeg"}
+                )
 
-            st.success("Fund gespeichert!")
+                public_url = supabase.storage.from_(BUCKET).get_public_url(file_id)
+
+                supabase.table("lost_items").insert({
+                    "label": label,
+                    "image_url": public_url
+                }).execute()
+
+                st.success("Fund erfolgreich gespeichert!")
 
 # ------------------------
 # TAB 2: SUCHE
 # ------------------------
 
 with tab2:
-    search = st.text_input("Nach Objekt suchen")
+
+    st.subheader("Fundstücke durchsuchen")
+
+    search = st.text_input("🔍 Objekt suchen")
 
     if st.button("Suchen"):
+
         query = supabase.table("lost_items").select("*")
 
         if search != "":
@@ -115,7 +182,19 @@ with tab2:
 
         result = query.execute()
 
-        for item in result.data:
-            st.image(item["image_url"], width=200)
-            st.write("Kategorie:", item["label"])
-            st.write("---")
+        if len(result.data) == 0:
+            st.info("Keine Gegenstände gefunden")
+
+        cols = st.columns(3)
+
+        for i, item in enumerate(result.data):
+
+            with cols[i % 3]:
+
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+
+                st.image(item["image_url"], use_column_width=True)
+
+                st.markdown(f"**Kategorie:** {item['label']}")
+
+                st.markdown('</div>', unsafe_allow_html=True)
