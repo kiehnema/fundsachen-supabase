@@ -90,7 +90,7 @@ with tab1:
                 {"content-type": "image/jpeg"}
             )
 
-            public_url = supabase.storage.from_(BUCKET).get_public_url(file_id)
+            public_url = supabase.storage.from_(lost-items).get_public_url(file_id)
 
             # In Datenbank speichern
             supabase.table("lost_items").insert({
