@@ -84,13 +84,13 @@ with tab1:
             image_bytes = uploaded_file.getvalue()
 
             # Upload zu Supabase Storage
-            supabase.storage.from_(lost-items).upload(
+            supabase.storage.from_(BUCKET).upload(
                 file_id,
                 image_bytes,
                 {"content-type": "image/jpeg"}
             )
 
-            public_url = supabase.storage.from_(lost-items).get_public_url(file_id)
+            public_url = supabase.storage.from_(BUCKET).get_public_url(file_id)
 
             # In Datenbank speichern
             supabase.table("lost_items").insert({
